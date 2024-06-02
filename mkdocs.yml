@@ -63,3 +63,10 @@ plugins:
 watch:
 - custom_theme
 
+nav:
+- "Home": index.md
+- "Daily Progress": Progress.md
+- "Software": software.md
+- "Mechanical": mechanical.md
+- "Creative": creative.md
+- "Business": business.md

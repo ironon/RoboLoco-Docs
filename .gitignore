@@ -9,6 +9,7 @@ firebase-debug.*.log*
 roboloco-key.json
 # Firebase cache
 .firebase/
+roboloco-key.json
 
 # Firebase config
 

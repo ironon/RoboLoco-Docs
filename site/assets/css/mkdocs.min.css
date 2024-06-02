@@ -364,6 +364,17 @@ svg {
         margin-top: 1%!important;
         margin-bottom: 8%!important
     }
+    .sidebar {
+        min-width: 270px;
+        max-width: 270px;
+        -webkit-transition: .3s;
+        -o-transition: .3s;
+        transition: .3s;
+        position: sticky
+    }
+    .sidebar.active {
+        margin-left: 35px
+    }
     .site-name {
         font-size: 14px!important
     }
@@ -383,7 +394,16 @@ svg {
     main {
         margin-left: 0!important;
         margin-right: 0!important;
-        line-height: 1.8!important
+        scrollbar-width: 0;
+        line-height: 1.8!important;
+        width: 100% !important;
+        overflox-x: hidden;
+    }
+    body {
+        scrollbar-width: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
     a,
     code,

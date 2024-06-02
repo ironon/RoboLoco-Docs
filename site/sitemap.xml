@@ -6,6 +6,11 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://roboloco.org/Progress/</loc>
+         <lastmod>2024-06-02</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://roboloco.org/business/</loc>
          <lastmod>2024-06-02</lastmod>
          <changefreq>daily</changefreq>

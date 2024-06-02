@@ -386,10 +386,10 @@ with open("./last_updated.txt", "w") as f:
 def get_section_from_file(filepath, section):
     anal = DavidMarkdownAnalyzer(filepath)
     data = anal.identify_sections()['Section']
-    
+    print("section: ", section)
     needed_section = None
     nextSection = None
-    
+    res = None
     for i, key in enumerate(data):
         print(key)
         if key[0] == section:
@@ -400,18 +400,49 @@ def get_section_from_file(filepath, section):
     with open(filepath, "r", encoding="utf-8") as f:
         text = f.readlines()
     if needed_section == None:
-        return "Section not found"
+        try:
+            print("trying to eval")
+            print(f"data[{section.strip()}]")
+            ## interpret section as a slice of the headers, aka try doing data[section]
+            res = eval(f"data[{section.strip()}]", globals(), locals())
+            print("res", res)
+            if res == None:
+                return None, None
+            ## check if res is a list
+            if type(res) == list:  
+                needed_section = (None, res[0][1])
+                # print(needed_section)
+                nextSection = (None, res[-1][1])
+                # print(nextSection)
+                if nextSection[1] == needed_section[1]:
+                    nextSection = None
+                # print(needed_section)
+            else:
+                needed_section = (None, data.index(res))
+                nextSection = (None, data.index(res)+1)
+                if nextSection[1] == len(data):
+                    nextSection = None
+
+            print("finished eval")
+
+
+        except Exception as e:
+            print(e)
+            return None, None
+        # return "Section not found"
     stringExcerpt = ""
     if nextSection == None:
         stringExcerpt = "\n".join(text[needed_section[1]:])
     else:
         stringExcerpt = "\n".join(text[needed_section[1]:nextSection[1]])
     stringExcerpt = stringExcerpt.replace(section, "",1)
+    
     stringExcerpt = stringExcerpt.split("\n", 1)[1]
   
-
     # print(stringExcerpt)
-    return stringExcerpt
+    if res == None:
+        return (stringExcerpt, None)
+    return (stringExcerpt, res[0])
 
 '''
 checks if string is the format <<python code>>, and if it is, run the python code inside the double angle brackets and return the output
@@ -423,43 +454,112 @@ def checkIfDynamicPython(string):
         string = string.replace(">>", "")
         return eval(string, globals())
     return string
-    
-files = os.listdir("./docs")
-for file in files:
-    if file == "index.md" or file == "404.md":
-        continue
-    exp = r"!\[.*\]\[.*\]"
-    ## check if file is a markdown file
-    if not file.endswith(".md"):
-        continue
 
-    with mkdocs_gen_files.open(f"{file}", "r+", encoding="utf-8") as f:
-        data = f.read()
-        ## match the expression to the data, find all matches, and extract the strings inbetween both brackets
-        ## then, get the section from the file
-        ## match <<python code>> a
+vars = {}
 
-        python_exp = r"<<.*?>>"
-        for match in re.findall(python_exp, data):
-            data = data.replace(match, checkIfDynamicPython(match))
-
-        for match in re.findall(exp, data):
-            print(match)
+needsParsing = True
+changes = 0
+while needsParsing:
+    python_exp = r"(?P<var>\(.+\))?<<.*?>>"
+    rel_exp = r"(?P<var>\(.+\))?<.*?>"
+    ##sub for all ${} in the string, js style
+    sub_exp = r"\${.*?}"
+    files = os.listdir("./docs")
+    for file in files:
+        print("doing file", file)
+        if file == "index.md" or file == "404.md":
+            continue
+        exp = r"!\[.*\]\[.*\]"
+        ## check if file is a markdown file
+        if not file.endswith(".md"):
+            continue
+        print("about to open")
+        with mkdocs_gen_files.open(f"{file}", "r+", encoding="utf-8") as f:
+            data = f.read()
+            for _ in range(4):
+                ## match the expression to the data, find all matches, and extract the strings inbetween both brackets
+                ## then, get the section from the file
+                ## match <<python code>> a
+                print("opened")
+                python_exp = r"(?P<var>\(.+\))?<<.*?>>"
+                rel_exp = r"(?P<var>\(.+\))?<.*?>"
+                ##sub for all ${} in the string, js style
+                sub_exp = r"\${.*?}"
+                # print(re.findall(python_exp, data))
+                for match in re.finditer(python_exp, data):
+                    # print("found python matches")
+                    ## get match's named caputirng group called "var", if it has one
+                    # changes += 1
+                    match = match.group()
+                    print("match: ", match)
+                    if match == "":
+                        continue
+                    dyn = checkIfDynamicPython(match)
+                    first_capturing_group = re.search(python_exp, match).groupdict()['var']
+                    
+                    ## get rid of parentheses in first capturing group
+                    if first_capturing_group != None:
+                        first_capturing_group = first_capturing_group.replace("(", "",1).replace(")", "",1)
+                        ## store dyn in vars
+                        vars[first_capturing_group] = dyn
+                    print("dyn: ",dyn)
+                    data = data.replace(match, dyn)
+                print(vars)
             
-            firstMatch = match.split("[")[1].split("]")[0]+'.md'
-            firstMatch = "/" + firstMatch.replace(".md.md", ".md")
-            firstMatch = firstMatch.replace("//", "/")
-            secondMatch = match.split("[")[2].split("]")[0]
-    
-            ## extract the string inbetween the brackets
-            ## get the section from the file
-            section = get_section_from_file("./docs" + firstMatch, secondMatch)
-            ## replace the image with the section
-            print(section)
-            data = data.replace(match, section)
-        f.seek(0)
-        # f.write(data)
-        f.write(data)  
+                print("got past dynamic")
+                for match in re.findall(exp, data):
+                    # changes += 1
+                    print(match)
+                    orgstring = match
+                    firstMatch = match.split("[")[1].split("]")[0]+'.md'
+                    firstMatch = "/" + firstMatch.replace(".md.md", ".md")
+                    firstMatch = firstMatch.replace("//", "/")
+                    secondMatch = match.split("[")[2].split("]")[0]
+            
+                    ## extract the string inbetween the brackets
 
+                    ## get the section from the file
+                    var = None
+                    newMatch = re.search(rel_exp, match)
+                    ## get match's named caputirng group called "var", if it has one
+                    print(newMatch)
 
+                    if not (newMatch == "" or newMatch == None):
+                        ## get rid of first capturing group, if it exists
+                        noVarMatch = newMatch.group()
+                        if newMatch.groupdict()['var'] != None:
+                            # var = match[newMatch.groupdict():newMatch.end("var")]
+                            var = newMatch.groupdict()['var']
+                            ## store the section in the vars dictionary
+                            noVarMatch = newMatch.group().replace(var, "",1)
+                            var = var.replace("(", "",1).replace(")", "",1)
+                        secondMatch = noVarMatch.replace("<", "",1).replace(">", "",1)
+
+                
+                    print("getting section")
+                    (section, evalOutput) = get_section_from_file("./docs" + firstMatch, secondMatch)
+                    vars[var] = evalOutput
+                    print(vars)
+                    ## replace the image with the section
+                    # print(section)
+                    if _ == 3:
+                        print("REPLACING")
+                        data = data.replace(match, "This data could not be pulled. This probably means that someone forgot to do their documentation or something.")
+                    if section == None:
+                        continue
+                    data = data.replace(match, section)
+                print(vars)
+                for match in re.findall(sub_exp, data):
+                    
+                    ## get the match without the ${}
+                    newMatch = match.replace("${", "").replace("}", "")
+                    ## get the value of the variable in the vars dictionary
+                    data = data.replace(match, vars[newMatch])
+
+                print("DONE WITH " + file + "=====================") 
+            f.seek(0)
+                # f.write(data)
+            f.write(data)  
         
+    needsParsing = False
+                
